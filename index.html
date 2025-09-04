@@ -757,6 +757,8 @@
               </table>
           </div>
           <div class="modal-actions">
+              <!-- PENAMBAHAN FITUR BARU -->
+              <button id="btnDownloadSiswaReport" class="btn btn-success">Download Laporan (Excel)</button>
               <button id="siswaDetailModalCloseBtn" class="btn btn-secondary">Tutup</button>
           </div>
       </div>
@@ -1462,6 +1464,7 @@
     const editGuruModalCancel = document.getElementById('editGuruModalCancel');
     const siswaDetailModalClose = document.getElementById('siswaDetailModalClose');
     const siswaDetailModalCloseBtn = document.getElementById('siswaDetailModalCloseBtn');
+    const btnDownloadSiswaReport = document.getElementById('btnDownloadSiswaReport'); // PENAMBAHAN BARU
 
     let notificationArea;
 
@@ -1649,6 +1652,9 @@
      const dayOrder = ["Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
      const lateThreshold = 3;
 
+     // PENAMBAHAN BARU: Untuk menyimpan data siswa di modal
+     let currentSiswaDetail = null;
+
 
     /********************************************************
      *             NOTIFICATION & MODAL SYSTEM
@@ -1703,6 +1709,13 @@
              return;
          }
 
+         // PENAMBAHAN BARU: Simpan data untuk di-download
+         currentSiswaDetail = {
+             siswa,
+             keterlambatanData,
+             siswaHistory
+         };
+
          detailNamaSiswaSpan.textContent = siswa.nama;
          detailKelasSiswaSpan.textContent = siswa.kelas;
          detailNisSiswaSpan.textContent = siswa.nis;
@@ -1733,6 +1746,8 @@
 
      function closeSiswaDetailModal() {
          siswaDetailModal.style.display = 'none';
+         // PENAMBAHAN BARU: Bersihkan data saat modal ditutup
+         currentSiswaDetail = null;
      }
      siswaDetailModalClose.addEventListener('click', closeSiswaDetailModal);
      siswaDetailModalCloseBtn.addEventListener('click', closeSiswaDetailModal);
@@ -4216,6 +4231,76 @@
          }
      });
 
+    /********************************************************
+     *      FUNGSI BARU: DOWNLOAD LAPORAN SISWA
+     ********************************************************/
+    async function downloadSiswaReportHandler() {
+        if (!currentSiswaDetail) {
+            showNotification("Data siswa tidak ditemukan untuk diunduh.", "error");
+            return;
+        }
+
+        const { siswa, siswaHistory } = currentSiswaDetail;
+        const btn = btnDownloadSiswaReport;
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = 'Mempersiapkan...';
+
+        try {
+            const totalTerlambat = siswaHistory.filter(r => r.status === 'late').length;
+            const totalIzin = siswaHistory.filter(r => r.status === 'izin').length;
+            const totalSakit = siswaHistory.filter(r => r.status === 'sakit').length;
+            const totalAlpha = siswaHistory.filter(r => r.status === 'alpha').length;
+
+            const ws_data = [
+                ["Laporan Absensi Siswa"],
+                [], // Baris kosong
+                ["Nama", siswa.nama],
+                ["Kelas", siswa.kelas],
+                ["NIS", siswa.nis],
+                ["Wali Kelas", siswa.waliKelas],
+                [], // Baris kosong
+                ["Ringkasan Absensi"],
+                ["Total Terlambat", totalTerlambat],
+                ["Total Izin", totalIzin],
+                ["Total Sakit", totalSakit],
+                ["Total Alpha", totalAlpha],
+                [], // Baris kosong
+                [], // Baris kosong
+                ["Riwayat Absensi Lengkap"],
+                ["Tanggal", "Status", "Waktu Kedatangan", "Alasan", "Pengisi"]
+            ];
+
+            siswaHistory.forEach(rec => {
+                ws_data.push([
+                    rec.tanggal,
+                    capitalizeFirstLetter(rec.status) + (rec.statusDetail ? ` (${rec.statusDetail.replace('_',' ')})` : ''),
+                    rec.status === 'late' ? (rec.waktu || '-') : '-',
+                    rec.alasan || "-",
+                    rec.pengisi || "-"
+                ]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            ws['!cols'] = [ {wch:25}, {wch:35}, {wch:20}, {wch:35}, {wch:20} ];
+
+            // Merge cells for title
+            ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }]; // Merge A1 to E1
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, `Laporan ${siswa.nama}`);
+            XLSX.writeFile(wb, `Laporan_Siswa_${siswa.nama.replace(/ /g, '_')}.xlsx`);
+            showNotification(`File laporan untuk ${siswa.nama} berhasil dibuat.`, "success");
+
+        } catch (error) {
+            console.error("Error membuat laporan siswa:", error);
+            showNotification("Gagal membuat file Excel laporan siswa. Cek konsol.", "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+
 
     /********************************************************
      *               UTILITY & THEME FUNCTIONS
@@ -4351,6 +4436,7 @@
         btnApplyKeterlambatanFilter.addEventListener('click', applyKeterlambatanFiltersAndRender);
         btnResetKeterlambatanFilter.addEventListener('click', resetKeterlambatanFiltersHandler);
         btnProsesKenaikanKelas.addEventListener('click', prosesKenaikanKelasHandler); // NEW
+        btnDownloadSiswaReport.addEventListener('click', downloadSiswaReportHandler); // PENAMBAHAN BARU
 
          // Other event listeners
          dashboardTop5Select.addEventListener('change', renderTop5DashboardTable); // NEW
