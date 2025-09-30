@@ -738,6 +738,7 @@
               <p><strong>Total Izin:</strong> <span id="detailTotalIzin">-</span></p>
               <p><strong>Total Sakit:</strong> <span id="detailTotalSakit">-</span></p>
               <p><strong>Total Alpha:</strong> <span id="detailTotalAlpha">-</span></p>
+              <p><strong>Total Poin Pelanggaran:</strong> <span id="detailTotalPoin" style="font-weight: bold; color: var(--danger-color);">-</span></p>
           </div>
           <h4>Riwayat:</h4>
           <div id="siswaDetailHistoryTableContainer" class="table-container">
@@ -749,10 +750,11 @@
                           <th>Waktu</th>
                           <th>Alasan</th>
                           <th>Pengisi</th>
+                          <th>Poin</th>
                       </tr>
                   </thead>
                   <tbody id="siswaDetailHistoryTableBody">
-                      <tr><td colspan="5" style="text-align:center;">Memuat riwayat...</td></tr>
+                      <tr><td colspan="6" style="text-align:center;">Memuat riwayat...</td></tr>
                   </tbody>
               </table>
           </div>
@@ -1150,7 +1152,7 @@
         <div class="sub-nav">
             <button class="sub-nav-item active" data-target="dataSiswaScreen">Manajemen Siswa</button>
             <button class="sub-nav-item" data-target="tahunAjaranScreen">Tahun Ajaran</button> <!-- NEW TAB -->
-            <button class="sub-nav-item" data-target="settingsScreen">Pengaturan Piket & Libur</button>
+            <button class="sub-nav-item" data-target="settingsScreen">Pengaturan</button>
             <button class="sub-nav-item" data-target="profileScreen">Profil & Pengisi</button>
         </div>
 
@@ -1314,6 +1316,23 @@
                     </table>
                 </div>
             </div>
+            <hr style="margin: 30px 0; border-color: var(--input-border-color);">
+            <div class="setting-section">
+                <h3>Pengaturan Poin Pelanggaran</h3>
+                <form id="formPoinPelanggaran" style="display:flex; flex-wrap:wrap; gap:15px; align-items: flex-end; margin-block-end:15px; background-color: var(--nav-item-bg-color); padding: 15px; border-radius: 8px;">
+                    <div style="flex: 1 1 200px;">
+                        <label for="poinTerlambat">Poin per Keterlambatan:</label>
+                        <input type="number" id="poinTerlambat" min="0" value="1" required>
+                    </div>
+                    <div style="flex: 1 1 200px;">
+                        <label for="poinDipulangkan">Poin jika Dipulangkan:</label>
+                        <input type="number" id="poinDipulangkan" min="0" value="5" required>
+                    </div>
+                    <div>
+                        <button type="submit" id="btnSimpanPoin" class="btn btn-primary">Simpan Poin</button>
+                    </div>
+                </form>
+            </div>
         </div>
 
         <!-- Sub-Screen: Profile -->
@@ -1382,7 +1401,7 @@
                 <li><strong>Home:</strong> Tampilan dashboard ringkasan.</li>
                 <li><strong>Input Absensi:</strong> Form untuk mencatat absensi harian (pilih mode Tunggal atau Massal/Bulk).</li>
                 <li><strong>Laporan:</strong> Lihat semua data dalam format tabel, riwayat, atau grafik. Gunakan *tab* di atas untuk memilih tampilan.</li>
-                <li><strong>Manajemen:</strong> Kelola data master siswa, tahun ajaran, pengaturan piket, hari libur, dan profil pengisi.</li>
+                <li><strong>Manajemen:</strong> Kelola data master siswa, tahun ajaran, pengaturan, dan profil pengisi.</li>
                 <li><strong>Bantuan:</strong> Halaman ini.</li>
             </ul>
             <p>Tombol <i class="fas fa-sun"></i>/<i class="fas fa-moon"></i> di kanan atas untuk mengganti tema tampilan (terang/gelap).</p>
@@ -1410,7 +1429,7 @@
            <h3>Manajemen & Pengaturan</h3>
             <ul>
                 <li>Pilih menu 'Manajemen'.</li>
-                <li>Pilih *tab* yang diinginkan: 'Manajemen Siswa', 'Tahun Ajaran', 'Pengaturan Piket & Libur', atau 'Profil & Pengisi'.</li>
+                <li>Pilih *tab* yang diinginkan: 'Manajemen Siswa', 'Tahun Ajaran', 'Pengaturan', atau 'Profil & Pengisi'.</li>
                 <li>Lakukan perubahan yang diperlukan, seperti menambah siswa, memproses kenaikan kelas, mengatur petugas piket, atau menambahkan hari libur.</li>
             </ul>
         </div>
@@ -1569,6 +1588,10 @@
     const liburKeteranganInput = document.getElementById('liburKeterangan');
     const btnTambahHariLibur = document.getElementById('btnTambahHariLibur');
     const hariLiburTableBody = document.getElementById('hariLiburTable');
+    const formPoinPelanggaran = document.getElementById('formPoinPelanggaran');
+    const poinTerlambatInput = document.getElementById('poinTerlambat');
+    const poinDipulangkanInput = document.getElementById('poinDipulangkan');
+    const btnSimpanPoin = document.getElementById('btnSimpanPoin');
 
     // Manajemen > Profile Screen
     const profileAbsensiCountSpan = document.getElementById('profileAbsensiCount');
@@ -1614,6 +1637,7 @@
     const detailTotalIzinSpan = document.getElementById('detailTotalIzin');
     const detailTotalSakitSpan = document.getElementById('detailTotalSakit');
     const detailTotalAlphaSpan = document.getElementById('detailTotalAlpha');
+    const detailTotalPoinSpan = document.getElementById('detailTotalPoin');
     const siswaDetailHistoryTableBody = document.getElementById('siswaDetailHistoryTableBody');
 
 
@@ -1633,6 +1657,7 @@
      let dataKeterlambatan = []; // {nama, kelas, terlambat_total}
      let hariLibur = [];
      let top5Data = {}; // NEW: { late: [], izin: [], sakit: [], alpha: [], dipulangkan: [] }
+     let poinSettings = { late: 1, dipulangkan: 5 }; // Default values
 
      // Chart Objects
      let chartObj = null;
@@ -1709,34 +1734,49 @@
              return;
          }
 
-         // PENAMBAHAN BARU: Simpan data untuk di-download
          currentSiswaDetail = {
              siswa,
              keterlambatanData,
              siswaHistory
          };
 
+         const totalIzin = siswaHistory.filter(r => r.status === 'izin').length;
+         const totalSakit = siswaHistory.filter(r => r.status === 'sakit').length;
+         const totalAlpha = siswaHistory.filter(r => r.status === 'alpha').length;
+         const totalDipulangkan = siswaHistory.filter(r => r.status === 'dipulangkan').length;
+         const totalTerlambat = keterlambatanData?.terlambat_total || 0;
+
+         const totalPoin = (totalTerlambat * poinSettings.late) + (totalDipulangkan * poinSettings.dipulangkan);
+         detailTotalPoinSpan.textContent = totalPoin;
+
          detailNamaSiswaSpan.textContent = siswa.nama;
          detailKelasSiswaSpan.textContent = siswa.kelas;
          detailNisSiswaSpan.textContent = siswa.nis;
          detailWaliKelasSiswaSpan.textContent = siswa.waliKelas;
-         detailTotalTerlambatSpan.textContent = keterlambatanData?.terlambat_total || 0;
-         detailTotalIzinSpan.textContent = siswaHistory.filter(r => r.status === 'izin').length;
-         detailTotalSakitSpan.textContent = siswaHistory.filter(r => r.status === 'sakit').length;
-         detailTotalAlphaSpan.textContent = siswaHistory.filter(r => r.status === 'alpha').length;
+         detailTotalTerlambatSpan.textContent = totalTerlambat;
+         detailTotalIzinSpan.textContent = totalIzin;
+         detailTotalSakitSpan.textContent = totalSakit;
+         detailTotalAlphaSpan.textContent = totalAlpha;
 
          siswaDetailHistoryTableBody.innerHTML = "";
          if (siswaHistory.length === 0) {
-             siswaDetailHistoryTableBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Tidak ada riwayat absensi.</td></tr>';
+             siswaDetailHistoryTableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Tidak ada riwayat absensi.</td></tr>';
          } else {
              siswaHistory.forEach(rec => {
                  const tr = document.createElement('tr');
+                 let poinRecord = 0;
+                 if (rec.status === 'late') {
+                     poinRecord = poinSettings.late;
+                 } else if (rec.status === 'dipulangkan') {
+                     poinRecord = poinSettings.dipulangkan;
+                 }
                  tr.innerHTML = `
                      <td>${rec.tanggal}</td>
                      <td>${capitalizeFirstLetter(rec.status)} ${rec.statusDetail ? '('+rec.statusDetail.replace('_',' ')+')' : ''}</td>
                      <td>${rec.status === 'late' ? (rec.waktu || '-') : '-'}</td>
                      <td>${rec.alasan || "-"}</td>
                      <td>${rec.pengisi || "-"}</td>
+                     <td style="text-align: center;">${poinRecord}</td>
                  `;
                  siswaDetailHistoryTableBody.appendChild(tr);
              });
@@ -1746,7 +1786,6 @@
 
      function closeSiswaDetailModal() {
          siswaDetailModal.style.display = 'none';
-         // PENAMBAHAN BARU: Bersihkan data saat modal ditutup
          currentSiswaDetail = null;
      }
      siswaDetailModalClose.addEventListener('click', closeSiswaDetailModal);
@@ -1790,15 +1829,15 @@
                 loadCollection('petugasGuru', (data) => { petugasGuru = data; }),
                 loadCollection('petugasSiswa', (data) => { petugasSiswa = data.map(item => item.nama); }),
                 loadCollection('databaseSiswa', (data) => {
-                    // NEW: Ensure backward compatibility for status_akademik
                     databaseSiswa = data.map(s => ({ ...s, status_akademik: s.status_akademik || 'Aktif' }));
                 }),
                 loadCollection('hariLibur', (data) => { hariLibur = data; }),
+                loadPoinSettings(),
                 loadCurrentPengisi()
             ]);
             console.log("Semua data awal dimuat.");
             showNotification("Data berhasil dimuat.", "success", 2000);
-            recalcAllTop5Data(); // REPLACES recalcDataKeterlambatan()
+            recalcAllTop5Data();
             setupRealtimeListeners();
             initialRender();
             archiveWeeklyData();
@@ -1832,13 +1871,33 @@
          }
     }
 
+    async function loadPoinSettings() {
+        try {
+            const doc = await db.collection('settings').doc('points').get();
+            if (doc.exists) {
+                const data = doc.data();
+                poinSettings = {
+                    late: data.late !== undefined ? Number(data.late) : 1,
+                    dipulangkan: data.dipulangkan !== undefined ? Number(data.dipulangkan) : 5
+                };
+                console.log(`Loaded Poin Settings:`, poinSettings);
+            } else {
+                console.log("No custom point settings found, using defaults.");
+                await db.collection('settings').doc('points').set(poinSettings);
+            }
+            poinTerlambatInput.value = poinSettings.late;
+            poinDipulangkanInput.value = poinSettings.dipulangkan;
+        } catch (err) {
+            console.error("Error loading point settings:", err);
+        }
+    }
+
     function setupRealtimeListeners() {
         db.collection('historyAbsensi').onSnapshot(handleSnapshot('historyAbsensi', (data) => { historyAbsensi = data; }), handleSnapshotError);
         db.collection('archiveAbsensi').onSnapshot(handleSnapshot('archiveAbsensi', (data) => { archiveAbsensi = data; }), handleSnapshotError);
         db.collection('petugasGuru').onSnapshot(handleSnapshot('petugasGuru', (data) => { petugasGuru = data; renderPetugasGuruTable(); renderProfileGuru(); renderProfilePengisiToday(); }), handleSnapshotError);
         db.collection('petugasSiswa').onSnapshot(handleSnapshot('petugasSiswa', (data) => { petugasSiswa = data.map(d => d.nama); renderProfileSiswa(); renderSettingsSiswaList(); }), handleSnapshotError);
         db.collection('databaseSiswa').onSnapshot(handleSnapshot('databaseSiswa', (data) => {
-            // NEW: Ensure backward compatibility for status_akademik on realtime updates
             databaseSiswa = data.map(s => ({ ...s, status_akademik: s.status_akademik || 'Aktif' }));
             renderDataSiswaTable();
             renderDataSiswaList();
@@ -1851,6 +1910,18 @@
             renderProfilePengisiToday();
         }, handleSnapshotError);
          db.collection('hariLibur').onSnapshot(handleSnapshot('hariLibur', (data) => { hariLibur = data; renderHariLiburTable(); checkDateInputHoliday(tanggalAbsenInput, holidayWarning); checkDateInputHoliday(bulkTanggalAbsenInput, bulkHolidayWarning); }), handleSnapshotError);
+         db.collection('settings').doc('points').onSnapshot(doc => {
+            if (doc.exists) {
+                const data = doc.data();
+                poinSettings = {
+                    late: data.late !== undefined ? Number(data.late) : 1,
+                    dipulangkan: data.dipulangkan !== undefined ? Number(data.dipulangkan) : 5
+                };
+                poinTerlambatInput.value = poinSettings.late;
+                poinDipulangkanInput.value = poinSettings.dipulangkan;
+                console.log("Poin settings updated in real-time:", poinSettings);
+            }
+        }, handleSnapshotError);
     }
 
     function handleSnapshot(collectionName, setDataCallback) {
@@ -1861,14 +1932,12 @@
 
              const needsRecalc = ['historyAbsensi', 'archiveAbsensi', 'databaseSiswa'];
              if (needsRecalc.includes(collectionName)) {
-                 recalcAllTop5Data(); // Use the new comprehensive function
+                 recalcAllTop5Data();
              }
-             // Re-render the currently active sub-screen if its data changes
              const activeSubScreen = document.querySelector('.sub-screen.active');
              if (activeSubScreen) {
                  triggerRenderForSubScreen(activeSubScreen.id);
              }
-             // Always update home if it's the active screen
              if (currentScreen === 'homeScreen') {
                  renderHome();
              }
@@ -2056,23 +2125,18 @@
         currentScreen = screenId;
         updateActiveNav(screenId);
 
-        // For screens with tabs, activate the first tab by default
         const firstSubScreen = targetScreen ? targetScreen.querySelector('.sub-screen') : null;
         if (firstSubScreen) {
-            // Deactivate all sub-screens and tabs in this container first
             targetScreen.querySelectorAll('.sub-screen').forEach(s => s.classList.remove('active'));
             targetScreen.querySelectorAll('.sub-nav-item').forEach(i => i.classList.remove('active'));
 
-            // Activate the first one
             firstSubScreen.classList.add('active');
             const firstTab = targetScreen.querySelector('.sub-nav-item');
             if (firstTab) {
                 firstTab.classList.add('active');
             }
-            // Trigger the render function for this default sub-screen
             triggerRenderForSubScreen(firstSubScreen.id);
         } else if (screenId === 'homeScreen') {
-            // Handle screens without tabs
             renderHome();
         }
         window.scrollTo(0, 0);
@@ -2360,7 +2424,6 @@
      }
     function renderDataSiswaList() {
         siswaDataList.innerHTML = "";
-        // MODIFIED: Only show active students in datalists for forms
         const sortedSiswa = [...databaseSiswa]
             .filter(s => s.status_akademik === 'Aktif')
             .sort((a, b) => a.nama.localeCompare(b.nama));
@@ -2376,7 +2439,6 @@
             showNotification("Data siswa tidak ditemukan untuk diedit.", "error");
             return;
         }
-        // Using SweetAlert for a better multi-input form
         const { value: formValues } = await Swal.fire({
             title: `Edit Data ${siswa.nama}`,
             html:
@@ -2625,12 +2687,10 @@
 
                     const existingSiswaId = nisToIdMap.get(nis);
                     if (existingSiswaId) {
-                        // UPDATE existing student
                         const docRef = db.collection('databaseSiswa').doc(existingSiswaId);
                         batch.update(docRef, siswaData);
                         updatedCount++;
                     } else {
-                        // INSERT new student
                         const newDocRef = db.collection('databaseSiswa').doc();
                         batch.set(newDocRef, { ...siswaData, status_akademik: 'Aktif' });
                         importedCount++;
@@ -2682,7 +2742,6 @@
         selectAllSiswaCheckbox.checked = false;
         const searchTerm = searchDataSiswaTableInput.value.toLowerCase();
 
-        // MODIFIED: Filter by academic status first
         let dataToFilter = databaseSiswa.filter(s => s.status_akademik === currentSiswaStatusFilter);
 
          if (searchTerm) {
@@ -2742,7 +2801,6 @@
         const confirmationMessage = `
             Anda yakin ingin memproses kenaikan kelas?
             <br><br>
-            Tindakan ini akan:
             <ul style="text-align: left; margin: 10px auto; max-width: 300px;">
                 <li>Mengubah siswa <strong>Kelas 10 &rarr; Kelas 11</strong>.</li>
                 <li>Mengubah siswa <strong>Kelas 11 &rarr; Kelas 12</strong>.</li>
@@ -2831,15 +2889,12 @@
             }
         });
 
-        // Recalculate dataKeterlambatan (for Laporan > Keterlambatan screen)
-        // MODIFIED: Only calculate for active students
         dataKeterlambatan = databaseSiswa.filter(s => s.status_akademik === 'Aktif').map(siswa => ({
             nama: siswa.nama,
             kelas: siswa.kelas,
             terlambat_total: counts.late[siswa.nama.toLowerCase()] || 0
         }));
 
-        // Recalculate top5Data (for Dashboard)
         for (const status in counts) {
             top5Data[status] = databaseSiswa.map(siswa => ({
                 nama: siswa.nama,
@@ -2850,7 +2905,6 @@
 
         console.log("Data agregat (Keterlambatan & Top 5) recalculated.");
 
-        // Trigger re-render if the relevant screens are active
         if (document.querySelector('#terlambatScreen.active')) applyKeterlambatanFiltersAndRender();
         if (document.querySelector('#homeScreen.active')) renderTop5DashboardTable();
     }
@@ -2898,7 +2952,7 @@
       }
       const record = {
         nama: siswa.nama,
-        kelas: siswa.kelas, // This is a snapshot of the class at the time of recording
+        kelas: siswa.kelas,
         tanggal,
         status: statusKedatangan,
         alasan: finalAlasan,
@@ -2960,7 +3014,6 @@
             }).then(async (result) => {
                  if (result.isConfirmed) {
                     try {
-                        // 1. Add to 'siswaDipulangkan' collection for tracking
                         await addData('siswaDipulangkan', {
                             nama: studentName,
                             datePulang: todayStr,
@@ -2968,7 +3021,6 @@
                             reason: `Mencapai ${currentLateCount} keterlambatan (kelipatan ${lateThreshold})`
                         });
 
-                        // 2. NEW: Automatically add a "Dipulangkan" status to history
                         const combinedHistory = [...historyAbsensi, ...archiveAbsensi];
                         const alreadyDipulangkan = combinedHistory.some(rec => rec.nama.toLowerCase() === nameLower && rec.tanggal === todayStr && rec.status === 'dipulangkan');
 
@@ -2997,7 +3049,6 @@
     function populateBulkSiswaList(searchTerm = '') {
         bulkAbsensiSiswaListDiv.innerHTML = '';
         const lowerSearchTerm = searchTerm.toLowerCase();
-        // MODIFIED: Only show active students
         const filteredSiswa = databaseSiswa
             .filter(s => s.status_akademik === 'Aktif' && (s.nama.toLowerCase().includes(lowerSearchTerm) || s.kelas.toLowerCase().includes(lowerSearchTerm)))
             .sort((a, b) => a.nama.localeCompare(b.nama));
@@ -3332,7 +3383,6 @@
             const tr = document.createElement('tr');
             const isDisabled = siswa.terlambat_total === 0;
 
-            // Calculate remaining lateness
             const sisaModulo = siswa.terlambat_total % lateThreshold;
             const sisaKeterlambatan = sisaModulo === 0 ? lateThreshold : lateThreshold - sisaModulo;
 
@@ -4175,7 +4225,7 @@
 
 
      /********************************************************
-      *     KELOLA HARI LIBUR (Manajemen > Settings)
+      *     KELOLA HARI LIBUR & POIN (Manajemen > Settings)
       ********************************************************/
      async function tambahHariLiburHandler(event) {
          event.preventDefault();
@@ -4224,6 +4274,35 @@
              } catch (error) { }
          });
      }
+
+     async function simpanPoinHandler(event) {
+        event.preventDefault();
+        const poinTerlambat = parseInt(poinTerlambatInput.value, 10);
+        const poinDipulangkan = parseInt(poinDipulangkanInput.value, 10);
+
+        if (isNaN(poinTerlambat) || isNaN(poinDipulangkan) || poinTerlambat < 0 || poinDipulangkan < 0) {
+            showNotification("Nilai poin harus angka positif.", "warning");
+            return;
+        }
+
+        const newSettings = { late: poinTerlambat, dipulangkan: poinDipulangkan };
+        const btn = btnSimpanPoin;
+        let originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = 'Menyimpan... <span class="spinner"></span>';
+
+        try {
+            await db.collection('settings').doc('points').set(newSettings);
+            showNotification("Pengaturan poin berhasil disimpan.", "success");
+        } catch (error) {
+            console.error("Error saving point settings:", error);
+            showNotification("Gagal menyimpan pengaturan poin.", "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+
      formTambahHariLibur.addEventListener('submit', tambahHariLiburHandler);
      hariLiburTableBody.addEventListener('click', (event) => {
          if (event.target.classList.contains('btn-hapus-libur')) {
@@ -4251,41 +4330,47 @@
             const totalIzin = siswaHistory.filter(r => r.status === 'izin').length;
             const totalSakit = siswaHistory.filter(r => r.status === 'sakit').length;
             const totalAlpha = siswaHistory.filter(r => r.status === 'alpha').length;
+            const totalDipulangkan = siswaHistory.filter(r => r.status === 'dipulangkan').length;
+            const totalPoin = (totalTerlambat * poinSettings.late) + (totalDipulangkan * poinSettings.dipulangkan);
 
             const ws_data = [
                 ["Laporan Absensi Siswa"],
-                [], // Baris kosong
+                [],
                 ["Nama", siswa.nama],
                 ["Kelas", siswa.kelas],
                 ["NIS", siswa.nis],
                 ["Wali Kelas", siswa.waliKelas],
-                [], // Baris kosong
+                [],
                 ["Ringkasan Absensi"],
                 ["Total Terlambat", totalTerlambat],
                 ["Total Izin", totalIzin],
                 ["Total Sakit", totalSakit],
                 ["Total Alpha", totalAlpha],
-                [], // Baris kosong
-                [], // Baris kosong
+                ["Total Poin Pelanggaran", totalPoin],
+                [],
+                [],
                 ["Riwayat Absensi Lengkap"],
-                ["Tanggal", "Status", "Waktu Kedatangan", "Alasan", "Pengisi"]
+                ["Tanggal", "Status", "Waktu Kedatangan", "Alasan", "Pengisi", "Poin"]
             ];
 
             siswaHistory.forEach(rec => {
+                let poinRecord = 0;
+                if (rec.status === 'late') poinRecord = poinSettings.late;
+                else if (rec.status === 'dipulangkan') poinRecord = poinSettings.dipulangkan;
+
                 ws_data.push([
                     rec.tanggal,
                     capitalizeFirstLetter(rec.status) + (rec.statusDetail ? ` (${rec.statusDetail.replace('_',' ')})` : ''),
                     rec.status === 'late' ? (rec.waktu || '-') : '-',
                     rec.alasan || "-",
-                    rec.pengisi || "-"
+                    rec.pengisi || "-",
+                    poinRecord
                 ]);
             });
 
             const ws = XLSX.utils.aoa_to_sheet(ws_data);
-            ws['!cols'] = [ {wch:25}, {wch:35}, {wch:20}, {wch:35}, {wch:20} ];
-
-            // Merge cells for title
-            ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }]; // Merge A1 to E1
+            ws['!cols'] = [ {wch:25}, {wch:35}, {wch:20}, {wch:35}, {wch:20}, {wch:10} ];
+            ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
 
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, `Laporan ${siswa.nama}`);
@@ -4411,9 +4496,8 @@
 
         initializeFirebase();
         setupNavListeners();
-        setupSubNavListeners(); // NEW
+        setupSubNavListeners();
 
-        // Form submit listeners
         absensiForm.addEventListener('submit', catatKehadiran);
         bulkAbsensiForm.addEventListener('submit', catatBulkAbsensiHandler);
         formTambahGuru.addEventListener('submit', tambahPetugasGuruHandler);
@@ -4421,8 +4505,8 @@
         formTambahSiswa.addEventListener('submit', tambahSiswaHandler);
         formTambahHariLibur.addEventListener('submit', tambahHariLiburHandler);
         editGuruForm.addEventListener('submit', handleEditGuruSubmit);
+        formPoinPelanggaran.addEventListener('submit', simpanPoinHandler);
 
-        // Button click listeners
         btnSetPengisi.addEventListener('click', setPengisiHandler);
         btnResetSemuaKeterlambatan.addEventListener('click', resetSemuaKeterlambatanHandler);
         btnHapusSemuaSiswa.addEventListener('click', hapusSemuaSiswaHandler);
@@ -4435,11 +4519,10 @@
         btnResetHistoryFilters.addEventListener('click', resetHistoryFiltersHandler);
         btnApplyKeterlambatanFilter.addEventListener('click', applyKeterlambatanFiltersAndRender);
         btnResetKeterlambatanFilter.addEventListener('click', resetKeterlambatanFiltersHandler);
-        btnProsesKenaikanKelas.addEventListener('click', prosesKenaikanKelasHandler); // NEW
-        btnDownloadSiswaReport.addEventListener('click', downloadSiswaReportHandler); // PENAMBAHAN BARU
+        btnProsesKenaikanKelas.addEventListener('click', prosesKenaikanKelasHandler);
+        btnDownloadSiswaReport.addEventListener('click', downloadSiswaReportHandler);
 
-         // Other event listeners
-         dashboardTop5Select.addEventListener('change', renderTop5DashboardTable); // NEW
+         dashboardTop5Select.addEventListener('change', renderTop5DashboardTable);
          selectAllSiswaCheckbox.addEventListener('change', (e) => toggleSelectAllSiswa(e.target));
          statusKedatanganSelect.addEventListener('change', toggleAbsensiFieldsVisibility);
          dropdownAlasanSelect.addEventListener('change', toggleAbsensiFieldsVisibility);
@@ -4449,17 +4532,14 @@
          bulkTanggalAbsenInput.addEventListener('change', () => checkDateInputHoliday(bulkTanggalAbsenInput, bulkHolidayWarning));
          chartOptionSelect.addEventListener('change', handleChartOptionChange);
 
-         // Setup Table Sorting
          addTableSorting(dataSiswaTableBody.closest('table'), siswaSort, () => renderDataSiswaTable());
          addTableSorting(dataKeterlambatanTableBody.closest('table'), keterlambatanSort, applyKeterlambatanFiltersAndRender);
          addTableSorting(historyTableBody.closest('table'), historySort, applyHistoryFiltersAndRender);
 
-         // Setup Table Searching (Live Filtering)
          searchDataSiswaTableInput.addEventListener('input', () => renderDataSiswaTable());
          searchKeterlambatanInput.addEventListener('input', applyKeterlambatanFiltersAndRender);
          searchHistoryInput.addEventListener('input', applyHistoryFiltersAndRender);
 
-         // Initial state setup
          tanggalAbsenInput.valueAsDate = new Date();
          bulkTanggalAbsenInput.valueAsDate = new Date();
          toggleAbsensiFieldsVisibility();
